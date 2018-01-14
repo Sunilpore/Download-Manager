@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">DownloadManager1.0</string>
+    <string name="app_name">DownloadManager</string>
+    <string name="main">Download Manager</string>
 </resources>
