@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">DownloadManager</string>
     <string name="main">Download Manager</string>
+   <!-- <item name="Ssnackbar">@color/snackbar</item>-->
 </resources>
