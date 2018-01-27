@@ -45,6 +45,15 @@
             android:layout_alignParentStart="true"
             android:layout_marginTop="96dp" />
 
+        <Button
+            android:id="@+id/clear_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/download_button"
+            android:text="CLEAR"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
+            android:layout_marginTop="27dp" />
     </RelativeLayout>
 
 

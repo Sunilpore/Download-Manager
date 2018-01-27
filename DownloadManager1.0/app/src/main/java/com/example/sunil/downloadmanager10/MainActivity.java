@@ -5,6 +5,8 @@ import android.app.DownloadManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -29,6 +31,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+
 public class MainActivity extends AppCompatActivity {
 
     private static String Mytag="myTag";
@@ -39,7 +46,10 @@ public class MainActivity extends AppCompatActivity {
     CoordinatorLayout cdlay;
     //private RippleDrawable ripple;
     EditText setURL;
-    Button download;
+    Button download,clear;
+
+    String sdkName;
+    int sdkNo,fileSize,fileTimeout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,12 +60,15 @@ public class MainActivity extends AppCompatActivity {
         download= (Button) findViewById(R.id.download_button);
         cdlay= (CoordinatorLayout) findViewById(R.id.cord_lay);
         myToolbar= (Toolbar) findViewById(R.id.toolbar_lay);
+        clear= (Button) findViewById(R.id.clear_url);
+
         // ripple=(RippleDrawable) download.getBackground();
 
         setSupportActionBar(myToolbar);
 
         this.mContext=this;
 
+        //displayAndroidVersion();
 
         //defineRippleDynamically();
 
@@ -78,54 +91,98 @@ public class MainActivity extends AppCompatActivity {
                 String url = setURL.getText().toString();
                 //String url = "https://www.theplanningcenter.com/wp-content/uploads/2016/10/qtq80-MXfZgt.jpeg";
 
-                if(url.equals("")){
+                ConnectivityManager cm= (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
 
-                    Toast.makeText(MainActivity.this,"Android Version:"+ Build.VERSION.SDK_INT,Toast.LENGTH_LONG).show();
-                    Snackbar sn = Snackbar.make(cdlay, "Please,Enter the URL", Snackbar.LENGTH_LONG);
-                    sn.getView().setBackgroundColor(ContextCompat.getColor(mContext,R.color.snackbar));
-                    sn.show();
+                NetworkInfo nwinfo=cm.getActiveNetworkInfo();
 
-                }
-                else if(Patterns.WEB_URL.matcher(url).matches()){
+                boolean isConnected= nwinfo!=null && nwinfo.isConnectedOrConnecting();
 
-                    Log.d("myTag","URL:"+url);
+                if(isConnected){
 
-                    try{
+                    if(url.equals("")){
 
-                        String service= Context.DOWNLOAD_SERVICE;
-                        DownloadManager downloadManager;
+                        //Toast.makeText(MainActivity.this,"Android Version:"+ Build.VERSION.SDK_INT,Toast.LENGTH_LONG).show();
+                        Snackbar sn = Snackbar.make(cdlay, "Please,Enter the URL", Snackbar.LENGTH_LONG);
+                        sn.getView().setBackgroundColor(ContextCompat.getColor(mContext,R.color.snackbar));
+                        sn.show();
 
-                        downloadManager= (DownloadManager) getSystemService(service);
-
-                        //Uri uri=Uri.parse("http://www.gadgetsaint.com/wp-content/uploads/2016/11/cropped-web_hi_res_512.png");
-                        Uri uri=Uri.parse(url);
-
-                        String fileName = URLUtil.guessFileName(url, null,
-                                MimeTypeMap.getFileExtensionFromUrl(url));
-
-                        DownloadManager.Request request=new DownloadManager.Request(uri);
-
-                        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,fileName);
-                        mBuilder.setProgress(0,0,true);
-                        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                        Long ref=downloadManager.enqueue(request);
-
-                    }catch(Exception e)
-                    {
-                        //Toast.makeText(MainActivity.this,"ERROR:"+e,Toast.LENGTH_LONG).show();
-                        Toast.makeText(MainActivity.this,"Allow storage permission for app",Toast.LENGTH_LONG).show();
                     }
+                    else if(Patterns.WEB_URL.matcher(url).matches()){
+
+                        //This will work to display filesize to user before download a file
+                        /*new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    URL myUrl=new URL(url);
+                                    URLConnection urlConnection=myUrl.openConnection();
+                                    urlConnection.connect();
+                                    int fileSize=urlConnection.getContentLength();
+                                    int fileTimeout=urlConnection.getConnectTimeout();
+                                    Log.d("myTag","filesize:"+fileSize+"\nTimeout:"+fileTimeout);
+                                } catch (MalformedURLException e) {
+                                    e.printStackTrace();
+                                    Log.d("myTag","error:"+e);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    Log.d("myTag","error:"+e);
+                                }
+
+                            }
+                        }).start();*/
+
+                        Log.d("myTag","URL:"+url);
+
+                        try{
+
+                            String service= Context.DOWNLOAD_SERVICE;
+                            DownloadManager downloadManager;
+
+                            downloadManager= (DownloadManager) getSystemService(service);
+
+                            //Uri uri=Uri.parse("http://www.gadgetsaint.com/wp-content/uploads/2016/11/cropped-web_hi_res_512.png");
+                            Uri uri=Uri.parse(url);
+
+                            String fileName = URLUtil.guessFileName(url, null,
+                                    MimeTypeMap.getFileExtensionFromUrl(url));
+
+                            DownloadManager.Request request=new DownloadManager.Request(uri);
+
+                            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,fileName);
+                            mBuilder.setProgress(0,0,true);
+                            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                            Long ref=downloadManager.enqueue(request);
+
+                        }catch(Exception e)
+                        {
+                            //Toast.makeText(MainActivity.this,"ERROR:"+e,Toast.LENGTH_LONG).show();
+                            Toast.makeText(MainActivity.this,"Allow storage permission for app",Toast.LENGTH_LONG).show();
+                        }
+                    }
+                    else{
+                        Snackbar sn = Snackbar.make(cdlay, "Invalid URL", Snackbar.LENGTH_LONG);
+                        sn.getView().setBackgroundColor(Color.GRAY);
+                        sn.show();
+                    }
+
                 }
-                else{
-                    Snackbar sn = Snackbar.make(cdlay, "Invalid URL", Snackbar.LENGTH_LONG);
-                    sn.getView().setBackgroundColor(Color.GRAY);
-                    sn.show();
-                }
+                else
+                    Toast.makeText(mContext, "Network is Disconnected", Toast.LENGTH_LONG).show();
+
 
             }
         });
 
-        ;
+
+
+        clear.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                setURL.setText("");
+            }
+        });
+
+
     }
 
     @Override
@@ -143,10 +200,14 @@ public class MainActivity extends AppCompatActivity {
 
                 StringBuffer buf=new StringBuffer();
 
+                buf.append("Version,1.1\nLast update:26/1/18\n\n");
                 buf.append("Developed By,\nSunil Pore\n\n");
-                buf.append("Contact US:sunilpore95@gmail.com");
+                buf.append("Contact US:sunilpore95@yahoo.com");
                 aboutusMsg("About",buf.toString());
                 //Toast.makeText(mContext, "\t\t\t\t\t\t\t\tv1.0\n Last modified:1/13/18 ", Toast.LENGTH_SHORT).show();
+                break;
+            
+
         }
 
         return super.onOptionsItemSelected(item);
@@ -161,6 +222,17 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /*private void displayAndroidVersion(){
+        if(Build.VERSION.SDK_INT>=4){
+            int versioID=0;
+            switch ( versioID){
+
+                case 4: sdkName="Ice Cream Sandwich";
+                        sdkNo=4;
+            }
+
+        }
+    }*/
 
     public void defineRippleDynamically(){
 
