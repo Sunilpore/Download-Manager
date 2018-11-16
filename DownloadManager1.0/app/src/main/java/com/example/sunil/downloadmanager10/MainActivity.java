@@ -3,19 +3,22 @@ package com.example.sunil.downloadmanager10;
 import android.Manifest;
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import io.reactivex.Observable;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.content.res.ResourcesCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -25,16 +28,32 @@ import android.util.Patterns;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.webkit.MimeTypeMap;
 import android.webkit.URLUtil;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import com.example.sunil.downloadmanager10.api.ServiceCall;
+import com.example.sunil.downloadmanager10.api.ServiceClient;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.DecimalFormat;
+
+import io.reactivex.Observer;
+import io.reactivex.Scheduler;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -43,11 +62,19 @@ public class MainActivity extends AppCompatActivity {
 
     Context mContext;
     Toolbar myToolbar;
+    ProgressBar progBar;
     CoordinatorLayout cdlay;
     //private RippleDrawable ripple;
     EditText setURL;
-    Button download,clear;
+    Button download,clear,test;
+    boolean permission=false;
+    boolean downloadStart = true;
+    long ref;
+    int perc = 0,newperc=0,download_bytes,total_bytes;
+    DownloadManager downloadManager;
 
+    NotificationCompat.Builder mBuilder;
+    Handler handler;
     String sdkName;
     int sdkNo,fileSize,fileTimeout;
 
@@ -58,14 +85,16 @@ public class MainActivity extends AppCompatActivity {
 
         setURL= (EditText) findViewById(R.id.tv_url);
         download= (Button) findViewById(R.id.download_button);
+        test = (Button) findViewById(R.id.test_button);
         cdlay= (CoordinatorLayout) findViewById(R.id.cord_lay);
         myToolbar= (Toolbar) findViewById(R.id.toolbar_lay);
         clear= (Button) findViewById(R.id.clear_url);
-
+        progBar = (ProgressBar) findViewById(R.id.progress_bar);
         // ripple=(RippleDrawable) download.getBackground();
 
         setSupportActionBar(myToolbar);
 
+        handler = new Handler();
         this.mContext=this;
 
         //displayAndroidVersion();
@@ -87,8 +116,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
 
-                NotificationCompat.Builder mBuilder= new NotificationCompat.Builder(mContext);
-                String url = setURL.getText().toString();
+                mBuilder= new NotificationCompat.Builder(mContext);
+                final String url = setURL.getText().toString();
                 //String url = "https://www.theplanningcenter.com/wp-content/uploads/2016/10/qtq80-MXfZgt.jpeg";
 
                 ConnectivityManager cm= (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -102,24 +131,46 @@ public class MainActivity extends AppCompatActivity {
                     if(url.equals("")){
 
                         //Toast.makeText(MainActivity.this,"Android Version:"+ Build.VERSION.SDK_INT,Toast.LENGTH_LONG).show();
-                        Snackbar sn = Snackbar.make(cdlay, "Please,Enter the URL", Snackbar.LENGTH_LONG);
+                        Snackbar sn = Snackbar.make(cdlay, "Please,Enter the URL", Snackbar.LENGTH_INDEFINITE);
                         sn.getView().setBackgroundColor(ContextCompat.getColor(mContext,R.color.snackbar));
                         sn.show();
 
+                        /*ViewGroup contentLay = (ViewGroup) sn.getView().findViewById(android.support.design.R.id.snackbar_text).getParent();
+                        ProgressBar item = new ProgressBar(mContext);
+                        item.setProgress(20);
+                        item.setMax(100);
+                        contentLay.addView(item,0);*/
+
+                        //disableSwipeToDismiss(sn);
+
                     }
-                    else if(Patterns.WEB_URL.matcher(url).matches()){
+                    else if(Patterns.WEB_URL.matcher(url).matches()) {
+
+
+
 
                         //This will work to display filesize to user before download a file
-                        /*new Thread(new Runnable() {
+
+
+                        new Thread(new Runnable() {
                             @Override
                             public void run() {
+                                Looper.prepare();
+
                                 try {
                                     URL myUrl=new URL(url);
                                     URLConnection urlConnection=myUrl.openConnection();
+                                    urlConnection.setRequestProperty("Accept-Encoding", "identity");
                                     urlConnection.connect();
-                                    int fileSize=urlConnection.getContentLength();
+                                    fileSize=urlConnection.getContentLength();
                                     int fileTimeout=urlConnection.getConnectTimeout();
-                                    Log.d("myTag","filesize:"+fileSize+"\nTimeout:"+fileTimeout);
+
+                                    String fileName = URLUtil.guessFileName(url, null,
+                                            MimeTypeMap.getFileExtensionFromUrl(url));
+                                     DisplayFileSize(urlConnection.getContentLength(),url);
+
+
+                                    Log.d("myTag","filesize:"+fileSize+"\tTimeout:"+fileTimeout+" \nfileName: "+fileName+"\tmime type: "+MimeTypeMap.getFileExtensionFromUrl(url));
                                 } catch (MalformedURLException e) {
                                     e.printStackTrace();
                                     Log.d("myTag","error:"+e);
@@ -127,10 +178,14 @@ public class MainActivity extends AppCompatActivity {
                                     e.printStackTrace();
                                     Log.d("myTag","error:"+e);
                                 }
-
+                                Looper.loop();
                             }
-                        }).start();*/
 
+                        }).start();
+
+
+
+                        /*if(DisplayFileSize()){
                         Log.d("myTag","URL:"+url);
 
                         try{
@@ -158,6 +213,10 @@ public class MainActivity extends AppCompatActivity {
                             //Toast.makeText(MainActivity.this,"ERROR:"+e,Toast.LENGTH_LONG).show();
                             Toast.makeText(MainActivity.this,"Allow storage permission for app",Toast.LENGTH_LONG).show();
                         }
+
+
+                        }*/
+
                     }
                     else{
                         Snackbar sn = Snackbar.make(cdlay, "Invalid URL", Snackbar.LENGTH_LONG);
@@ -183,7 +242,48 @@ public class MainActivity extends AppCompatActivity {
         });
 
 
+        test.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                final String url = setURL.getText().toString();
+
+                ServiceCall apiCall = ServiceClient.getClient().create(ServiceCall.class);
+
+                Observable <ResponseBody> mObservable =  apiCall.getFileDownloadData(url);
+
+                mObservable.subscribeOn(Schedulers.io())
+                        .subscribeOn(AndroidSchedulers.mainThread())
+                        .subscribe(new Observer<ResponseBody>() {
+                            @Override
+                            public void onSubscribe(Disposable d) {
+
+                            }
+
+                            @Override
+                            public void onNext(ResponseBody responseBody) {
+                             long size = responseBody.contentLength();
+
+
+                             Log.d("FileSizeRx","size: "+size);
+                            }
+
+                            @Override
+                            public void onError(Throwable e) {
+
+                            }
+
+                            @Override
+                            public void onComplete() {
+
+                            }
+                        });
+
+
+            }
+        });
+
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -222,8 +322,163 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    /*private void displayAndroidVersion(){
-        if(Build.VERSION.SDK_INT>=4){
+
+    private boolean DisplayFileSize(int size, final String url){
+
+        String fileName = URLUtil.guessFileName(url, null,
+                MimeTypeMap.getFileExtensionFromUrl(url));
+        MimeTypeMap.getFileExtensionFromUrl(url);
+
+        String msg = "File Name: "+fileName+" \nFile Type: "+MimeTypeMap.getFileExtensionFromUrl(url)+
+                " \nFile size: "+filesizeDifferentiation(size);
+        AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+        builder.setMessage(msg+" \nDo you want to download...")
+        .setCancelable(false)
+        .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                permission=true;
+                dialogInterface.cancel();
+                startDownload(url);
+
+            }
+        })
+
+        .setNegativeButton("No", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.cancel();
+                permission=false;
+            }
+        });
+
+        AlertDialog alert = builder.create();
+        alert.setTitle("Download a File");
+        alert.show();
+    return permission;
+    }
+
+    private void startDownload(String url) {
+
+        try{
+            Log.d("Mortal","Download initiated: ") ;
+
+            String service= Context.DOWNLOAD_SERVICE;
+
+            downloadManager= (DownloadManager) getSystemService(service);
+
+            //Uri uri=Uri.parse("http://www.gadgetsaint.com/wp-content/uploads/2016/11/cropped-web_hi_res_512.png");
+            Uri uri=Uri.parse(url);
+
+            String fileName = URLUtil.guessFileName(url, null,
+                    MimeTypeMap.getFileExtensionFromUrl(url));
+
+            DownloadManager.Request request=new DownloadManager.Request(uri);
+
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,fileName);
+            mBuilder.setProgress(0,0,true);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            ref=downloadManager.enqueue(request);
+
+
+
+
+
+
+
+            while (downloadStart) {
+                DownloadManager.Query downloadquery = new DownloadManager.Query();
+                downloadquery.setFilterById(ref);
+
+                Cursor cursor = downloadManager.query(downloadquery);
+                cursor.moveToFirst();
+                download_bytes = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                total_bytes = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+
+                if (cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL) {
+                    downloadStart=false;
+                    //break;
+                }
+                perc = download_bytes*100/total_bytes;
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                if(perc!=newperc){
+                    progBar.setBackgroundColor(getResources().getColor(R.color.progress));
+                    progBar.setVisibility(View.VISIBLE);
+                    progBar.setProgress(perc);
+                    progBar.setMax(100);
+                    if(perc==100)
+                        progBar.setVisibility(View.GONE);
+
+                Log.d("Mortal","total bytes: "+total_bytes+"\tdownload so far:"+download_bytes+" \n perc: "+perc+"\tnew per: "+newperc) ;
+                newperc=perc;
+                }
+            }
+                });
+            }
+
+            Log.d("Mortal","Download finished: ") ;
+
+
+
+        }catch(Exception e)
+        {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    progBar.setVisibility(View.GONE);
+                }
+            });
+
+            Log.d("Mortal","ERROR: "+e.getMessage()) ;
+            //Toast.makeText(MainActivity.this,"ERROR:"+e,Toast.LENGTH_LONG).show();
+           // Toast.makeText(MainActivity.this,"Allow storage permission for app",Toast.LENGTH_LONG).show();
+        }
+
+    }
+
+
+    private String filesizeDifferentiation(int size){
+
+        DecimalFormat dec = new DecimalFormat("#.00");
+
+        String fsize = null;
+        if(size<1000){          //Kb
+            fsize = size+"B";
+        } else if(size <1000000){  //Mb
+            fsize = dec.format((float) size/1000)+"Kb";
+        } else if(size <1000000000){  //Gb
+            fsize = dec.format((float) size/1000000)+"Mb";
+        } else if (size > 1000000000){
+            fsize = dec.format((float) size/1000000000)+"Gb";
+        }
+
+
+        Log.d("Marvel","file size: "+size+"\t new: "+fsize );
+
+        return fsize;
+    }
+
+    private void disableSwipeToDismiss(Snackbar sn) {
+        final View view = sn.getView();
+        sn.show();
+
+        view.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                view.getViewTreeObserver().removeOnPreDrawListener(this);
+                ((CoordinatorLayout.LayoutParams) view.getLayoutParams()).setBehavior(null);
+                return true;
+            }
+        });
+
+    }
+
+
+    private void displayAndroidVersion(){
+     /*   if(Build.VERSION.SDK_INT>=4){
             int versioID=0;
             switch ( versioID){
 
@@ -231,8 +486,8 @@ public class MainActivity extends AppCompatActivity {
                         sdkNo=4;
             }
 
-        }
-    }*/
+        }*/
+    }
 
     public void defineRippleDynamically(){
 

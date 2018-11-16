@@ -15,7 +15,18 @@
         android:minHeight="?attr/actionBarSize"
         app:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
 
+
+
     </android.support.v7.widget.Toolbar>
+
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:layout_margin="1dp"
+        android:visibility="visible"/>
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -27,35 +38,43 @@
             android:id="@+id/tv_url"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:height="50dp"
-            android:hint="\tEnter URL"
-            android:layout_marginTop="102dp"
-            android:layout_alignParentTop="true"
             android:layout_alignLeft="@+id/download_button"
-            android:layout_alignStart="@+id/download_button" />
+            android:layout_alignParentTop="true"
+            android:layout_alignStart="@+id/download_button"
+            android:layout_marginTop="102dp"
+            android:height="50dp"
+            android:hint="\tEnter URL" />
 
         <Button
             android:id="@+id/download_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="DOWNLOAD"
-            android:foreground="@drawable/ripple_effect"
-            android:layout_alignTop="@+id/tv_url"
             android:layout_alignParentLeft="true"
             android:layout_alignParentStart="true"
-            android:layout_marginTop="96dp" />
+            android:layout_alignTop="@+id/tv_url"
+            android:layout_marginTop="96dp"
+            android:foreground="@drawable/ripple_effect"
+            android:text="DOWNLOAD" />
 
         <Button
             android:id="@+id/clear_url"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@+id/download_button"
-            android:text="CLEAR"
             android:layout_alignParentLeft="true"
             android:layout_alignParentStart="true"
-            android:layout_marginTop="27dp" />
-    </RelativeLayout>
+            android:layout_below="@+id/download_button"
+            android:layout_marginTop="27dp"
+            android:text="CLEAR" />
 
+        <Button
+            android:id="@+id/test_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/clear_url"
+            android:layout_marginTop="22dp"
+            android:text="TEST"/>
+
+    </RelativeLayout>
 
 
 </android.support.design.widget.CoordinatorLayout>
